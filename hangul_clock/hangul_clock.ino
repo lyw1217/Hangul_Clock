@@ -7,6 +7,9 @@
 #define LED_COUNT       36
 #define BRIGHTNESS      80
 
+#define BUTTON_1        2
+#define BUTTON_2        3
+
 #define BIRTH_MON       5
 #define BIRTH_DAY       28
 #define PERIOD          15
@@ -37,17 +40,25 @@ int uni_minutes[10][2] = { { -1, -1 }, { 36, 31 }, { 27, 31 }, { 28, 31 }, { 29,
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel( LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800 );
 
+int state_hour;
+int state_min;
+
 /* function declaration */
 void WelcomeLED();
 void SerialPrintTime();
 void rainbowFade(int wait, int rainbowLoops, int start_pixel, int end_pixel);
 void HappyBirthDay( DateTime _now );
 void ClockLED( DateTime _now );
+int HourButtonState();
+int MinButtonState();
 
 /* setup function */
 void setup()
 {
   Serial.begin(9600);
+
+  pinMode(BUTTON_1, INPUT_PULLUP);
+  pinMode(BUTTON_2, INPUT_PULLUP);
 
   if ( !rtc.begin() )
   {
@@ -79,10 +90,24 @@ void setup()
 /* loop */
 void loop()
 {
-  now = rtc.now();  
-
+  now = rtc.now();
+    
+  state_hour = digitalRead(BUTTON_1);
+  state_min  = digitalRead(BUTTON_2);
+  
+  if( HourButtonState() == 1 )
+  {
+    rtc.adjust(now+TimeSpan(0,1,0,0));
+  }
+  
+  if( MinButtonState() == 1 )
+  {
+    rtc.adjust(now+TimeSpan(0,0,1,0));
+  }
+  
   // 매 초마다 실행
-  if( old_now != now ){
+  if( old_now != now )
+  {
     ClockLED( now );
 
     #ifdef TEST
@@ -264,4 +289,40 @@ void rainbowFade(int wait, int rainbowLoops, int start_pixel, int end_pixel) {
       fadeVal = fadeMax; // Interim loop, make sure fade is at max
     }
   }
+}
+
+int HourButtonState()
+{
+  static int prevstate_hour = 1;
+  delay(10);
+
+  if( (state_hour == 0) && (prevstate_hour == 1))
+  {
+    prevstate_hour = 0;
+    return 0;
+  }
+  else if( (state_hour == 1) && (prevstate_hour == 0) )
+  {
+    prevstate_hour = 1;
+    return 1;
+  }
+  return 0;
+}
+
+int MinButtonState()
+{
+  static int prevstate_min = 1;
+  delay(10);
+
+  if( (state_min == 0) && (prevstate_min == 1))
+  {
+    prevstate_min = 0;
+    return 0;
+  }
+  else if( (state_min == 1) && (prevstate_min == 0) )
+  {
+    prevstate_min = 1;
+    return 1;
+  }
+  return 0;
 }
