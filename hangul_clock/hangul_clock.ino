@@ -1,14 +1,14 @@
 #include <RTClib.h>
 #include <Adafruit_NeoPixel.h>
 
- #define TEST
+// #define TEST
 
 #define LED_PIN         10
 #define LED_COUNT       36
 #define BRIGHTNESS      50
 
-#define BUTTON_1        2
-#define BUTTON_2        3
+#define BUTTON_HOUR       2
+#define BUTTON_MIN        3
 
 #define BIRTH_MON       5
 #define BIRTH_DAY       28
@@ -59,8 +59,8 @@ void setup()
   Serial.begin(9600);
   #endif
   
-  pinMode(BUTTON_1, INPUT_PULLUP);
-  pinMode(BUTTON_2, INPUT_PULLUP);
+  pinMode(BUTTON_HOUR, INPUT_PULLUP);
+  pinMode(BUTTON_MIN, INPUT_PULLUP);
 
   if ( !rtc.begin() )
   {
@@ -97,9 +97,9 @@ void loop()
 {
   now = rtc.now();
     
-  state_hour = digitalRead(BUTTON_1);
-  state_min  = digitalRead(BUTTON_2);
-  
+  state_hour = digitalRead(BUTTON_HOUR);
+  state_min  = digitalRead(BUTTON_MIN);
+
   if( HourButtonState() == 1 )
   {
     rtc.adjust(now+TimeSpan(0,1,0,0));
