@@ -1,35 +1,52 @@
 #include <RTClib.h>
 #include <Adafruit_NeoPixel.h>
 
-// #define TEST
+// #define DEBUG
+// #define INTERRUPT
 
-#define LED_PIN         10
-#define LED_COUNT       36
-#define BRIGHTNESS      50
+#define LED_PIN           10
+#define LED_COUNT         36
+#define BRIGHTNESS        50
 
 #define BUTTON_HOUR       2
 #define BUTTON_MIN        3
+#define SHORT_PUSH        300
+#define LONG_PUSH         4000
 
-#define BIRTH_MON       5
-#define BIRTH_DAY       28
-#define PERIOD          15
+#define BIRTH_MON         5
+#define BIRTH_DAY         28
+#define PERIOD            15
 
-RTC_DS3231  rtc;
-DateTime    old_now;
-DateTime    now;
+RTC_DS3231   rtc;
 
-// 시(17, 18), 분(31, 32)은 항상 켜져있으므로, LED 2개 배치, 절반씩 할당
+DateTime     old_now;
+DateTime     now;
+
+volatile int h_state       = LOW;
+volatile int m_state       = LOW;
+
+volatile int h_short_state = LOW;
+volatile int m_short_state = LOW;
+
+volatile int h_long_state  = LOW;
+volatile int m_long_state  = LOW;
+
+volatile unsigned long h_current_high;
+volatile unsigned long h_current_low;
+volatile unsigned long m_current_high;
+volatile unsigned long m_current_low;
+
 int hours[12][3] = { {0  ,11 , 17}, /* 열 두 시 */
-                     {1  , -1, 17}, /* 한 시 */ 
-                     {11 , -1, 17}, /* 두 시 */
-                     {3  , -1, 17}, /* 세 시 */
-                     {4  , -1, 17}, /* 네 시 */
+                     {1  ,-1 , 17}, /* 한 시 */ 
+                     {11 ,-1 , 17}, /* 두 시 */
+                     {3  ,-1 , 17}, /* 세 시 */
+                     {4  ,-1 , 17}, /* 네 시 */
                      {2  , 9 , 17}, /* 다 섯 시 */
                      {10 , 9 , 17}, /* 여 섯 시 */
                      {8  , 7 , 17}, /* 일 곱 시 */
                      {5  , 6 , 17}, /* 여 덟 시 */
                      {15 ,16 , 17}, /* 아 홉 시 */
-                     {0  , -1, 17}, /* 열 시 */
+                     {0  ,-1 , 17}, /* 열 시 */
                      {0  , 1 , 17}, /* 열 한 시 */ };
 
 int oclock[2][3] = { {23 , -1, 24}, /* 자 정 */ 
@@ -40,33 +57,43 @@ int uni_minutes[10][2] = { { -1, -1 }, { 34, 30 }, { 26, 30 }, { 27, 30 }, { 28,
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel( LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800 );
 
-int state_hour;
-int state_min;
-
 /* function declaration */
-void WelcomeLED();
-void SerialPrintTime();
-void rainbowFade(int wait, int rainbowLoops, int start_pixel, int end_pixel);
-void HappyBirthDay( DateTime _now );
-void ClockLED( DateTime _now );
-int HourButtonState();
-int MinButtonState();
-
+/*
+void WelcomeLED       ( );
+void SerialPrintTime  ( );
+void rainbowFade      ( int wait, int rainbowLoops, int start_pixel, int end_pixel );
+void HappyBirthDay    ( DateTime _now );
+void ClockLED         ( DateTime _now );
+void HourButtonState  ( );
+void MinButtonState   ( );
+void ResetSecond      ( );
+*/
+  
 /* setup function */
 void setup()
 {
-  #ifdef TEST
+#ifdef DEBUG
   Serial.begin(9600);
-  #endif
+#endif
   
   pinMode(BUTTON_HOUR, INPUT_PULLUP);
-  pinMode(BUTTON_MIN, INPUT_PULLUP);
+  pinMode(BUTTON_MIN , INPUT_PULLUP);
+
+#ifdef INTERRUPT
+  attachInterrupt( digitalPinToInterrupt(BUTTON_HOUR), HourButtonState, FALLING );
+  attachInterrupt( digitalPinToInterrupt(BUTTON_MIN ),  MinButtonState, FALLING );
+#endif
 
   if ( !rtc.begin() )
   {
     Serial.println( "Couldn't find RTC" );
     while (1);
   }
+
+  #ifdef DEBUG
+  Serial.println( " RTC RESET " );
+  rtc.adjust( DateTime( F(__DATE__), F(__TIME__) ) );
+  #endif
   
   if ( rtc.lostPower() ) 
   {
@@ -80,7 +107,7 @@ void setup()
   }
 
   old_now = rtc.now();
-  now = rtc.now();
+  now     = rtc.now();
 
   strip.setBrightness(BRIGHTNESS);
   strip.begin();
@@ -96,26 +123,43 @@ void setup()
 void loop()
 {
   now = rtc.now();
-    
-  state_hour = digitalRead(BUTTON_HOUR);
-  state_min  = digitalRead(BUTTON_MIN);
 
-  if( HourButtonState() == 1 )
+#ifdef INTERRUPT
+  // 짧게 눌렀을 때
+  if( h_short_state == HIGH )
   {
-    rtc.adjust(now+TimeSpan(0,1,0,0));
+    rtc.adjust( now + TimeSpan(0,1,0,0) );
+    ResetSecond();
+    h_short_state = LOW;
   }
-  
-  if( MinButtonState() == 1 )
+  if( m_short_state == HIGH )
   {
-    rtc.adjust(now+TimeSpan(0,0,1,0));
+    rtc.adjust( now + TimeSpan(0,0,1,0) );
+    ResetSecond();
+    m_short_state = LOW;
   }
+
+  // 길게 눌렀을 때
+  if( h_long_state == HIGH )
+  {
+    rtc.adjust( now + TimeSpan(0,1,0,0) );
+    ResetSecond();
+    h_long_state = LOW;
+  }
+  if( m_long_state == HIGH )
+  {
+    rtc.adjust( now + TimeSpan(0,0,1,0) );
+    ResetSecond();
+    m_long_state = LOW;
+  }
+#endif
   
   // 매 초마다 실행
   if( old_now != now )
   {
     ClockLED( now );
     
-    #ifdef TEST
+    #ifdef DEBUG
     SerialPrintTime();
     #endif
     
@@ -127,18 +171,18 @@ void loop()
 /* function definition */
 void SerialPrintTime()
 {
-  Serial.print(now.year(), DEC);
+  Serial.print( now.year()    , DEC );
   Serial.print('.');
-  Serial.print(now.month(), DEC);
+  Serial.print( now.month()   , DEC );
   Serial.print('.');
-  Serial.print(now.day(), DEC);
+  Serial.print( now.day()     , DEC );
   Serial.print(". ");
 
-  Serial.print(now.hour(), DEC);
+  Serial.print( now.hour()    , DEC );
   Serial.print(':');
-  Serial.print(now.minute(), DEC);
+  Serial.print( now.minute()  , DEC );
   Serial.print(':');
-  Serial.println(now.second(), DEC);
+  Serial.println( now.second(), DEC );
 }
 
 
@@ -150,17 +194,17 @@ void HappyBirthDay()
 }
 
 
-// 매개변수는 1초마다 바뀌는 rtc의 시간 값
 void ClockLED( DateTime _now )
 {
-  // 현재 시간과 분을 이용해서
-  // 분이 바뀔 때마다 키고 끄고 반복
   int now_hour, old_hour;
   int now_minute, old_minute;
 
   /* hour change */
-  now_hour = _now.hour();
+  now_hour =    _now.hour();
   old_hour = old_now.hour();
+   /* minute change */
+  now_minute = _now.minute();
+  old_minute = old_now.minute();
   
   // 이전 시간 OFF
   strip.setPixelColor( ( hours[old_hour % 12][0] ), strip.Color(   0,   0,   0 ) );
@@ -172,14 +216,15 @@ void ClockLED( DateTime _now )
   strip.setPixelColor( ( hours[now_hour % 12][1] ), strip.Color( 255, 255, 255 ) );
   strip.setPixelColor( ( hours[now_hour % 12][2] ), strip.Color( 255, 255, 255 ) );
                    
-  // 자정, 정오
-  if( (now_hour == 0) || (now_hour == 24) && (now_minute == 0) )
+  // 자정
+  if( ( (now_hour == 0) || (now_hour == 24) ) && (now_minute == 0) )
   {
     strip.setPixelColor( (oclock[0][0] ), strip.Color( 255, 255, 255 ) );
     strip.setPixelColor( (oclock[0][1] ), strip.Color( 255, 255, 255 ) );
     strip.setPixelColor( (oclock[0][2] ), strip.Color( 255, 255, 255 ) );
   }
-  else if( now_hour == 12 && (now_minute == 0) )
+  // 정오
+  else if( (now_hour == 12) && (now_minute == 0) )
   {
     strip.setPixelColor( (oclock[1][0] ), strip.Color( 255, 255, 255 ) );
     strip.setPixelColor( (oclock[1][1] ), strip.Color( 255, 255, 255 ) );
@@ -194,7 +239,7 @@ void ClockLED( DateTime _now )
 
   strip.show();
 
-  #ifdef TEST
+  #ifdef DEBUG
   Serial.print("Hour Change ");
   Serial.print(hours[old_hour % 12][0]);
   Serial.print(' ');
@@ -210,9 +255,6 @@ void ClockLED( DateTime _now )
   #endif
 
 
-  /* minute change */
-  now_minute = _now.minute();
-  old_minute = old_now.minute();
 
   // 이전 분 OFF
   strip.setPixelColor( ( dec_minutes[old_minute / 10][0] ), strip.Color(   0,   0,   0 ) );
@@ -237,7 +279,7 @@ void ClockLED( DateTime _now )
   
   strip.show();
 
-  #ifdef TEST
+  #ifdef DEBUG
   Serial.print("Minute Change ");
   Serial.print(dec_minutes[old_minute / 10][0]);
   Serial.print(' ');
@@ -257,7 +299,7 @@ void ClockLED( DateTime _now )
   #endif
 
   // 생일 날 매 30분마다 생일축하
-  if( (_now.month() == BIRTH_MON) && (_now.day() == BIRTH_DAY) && (_now.minute() % PERIOD == 0))
+  if( (_now.month() == BIRTH_MON) && (_now.day() == BIRTH_DAY) && (now_minute % PERIOD == 0))
   {
     HappyBirthDay();
   }
@@ -306,38 +348,65 @@ void rainbowFade(int wait, int rainbowLoops, int start_pixel, int end_pixel) {
   delay(100);
 }
 
-int HourButtonState()
+void HourButtonState()
 {
-  static int prevstate_hour = 1;
-  delay(10);
+  if( digitalRead(BUTTON_HOUR) == LOW )
+  {
+    h_current_high = millis();
+    h_state        = HIGH;
+    //return ;
+  }
 
-  if( (state_hour == 0) && (prevstate_hour == 1))
+  if( ( digitalRead(BUTTON_HOUR) == HIGH ) && ( h_state == HIGH ) )
   {
-    prevstate_hour = 0;
-    return 0;
+    Serial.println("HOUR");
+    h_current_low = millis();
+
+    if( ( h_current_low - h_current_high ) > 1 && ( h_current_low - h_current_high ) < SHORT_PUSH )
+    {
+      h_short_state = HIGH;
+      h_state       = LOW;
+    }
+    else if( ( h_current_low - h_current_high ) >= SHORT_PUSH && ( h_current_low - h_current_high ) < LONG_PUSH )
+    {
+      h_long_state  = HIGH;
+      h_state       = LOW;
+    }
   }
-  else if( (state_hour == 1) && (prevstate_hour == 0) )
-  {
-    prevstate_hour = 1;
-    return 1;
-  }
-  return 0;
 }
 
-int MinButtonState()
+void MinButtonState()
 {
-  static int prevstate_min = 1;
-  delay(10);
+  if( digitalRead(BUTTON_MIN) == LOW )
+  {
+    m_current_high = millis();
+    m_state        = HIGH;
+    //return ;
+  }
 
-  if( (state_min == 0) && (prevstate_min == 1))
+  if( ( digitalRead(BUTTON_MIN) == HIGH ) && ( m_state == HIGH ) )
   {
-    prevstate_min = 0;
-    return 0;
+    m_current_low = millis();
+
+    if( ( m_current_low - m_current_high ) > 1 && ( m_current_low - m_current_high ) < SHORT_PUSH )
+    {
+      Serial.println("MIN");
+      m_short_state = HIGH;
+      m_state       = LOW;
+    }
+    else if( ( m_current_low - m_current_high ) >= SHORT_PUSH && ( m_current_low - m_current_high ) < LONG_PUSH )
+    {
+      m_long_state  = HIGH;
+      m_state       = LOW;
+    }
   }
-  else if( (state_min == 1) && (prevstate_min == 0) )
+}
+
+void ResetSecond()
+{
+  while( now.second() != 0 )
   {
-    prevstate_min = 1;
-    return 1;
-  }
-  return 0;
+    rtc.adjust( now - TimeSpan(0,0,0,1) );
+    now = rtc.now();
+  }  
 }
