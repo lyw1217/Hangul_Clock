@@ -13,8 +13,6 @@
 #define SHORT_PUSH        300
 #define LONG_PUSH         4000
 
-#define BIRTH_MON         5
-#define BIRTH_DAY         28
 #define PERIOD            15
 
 RTC_DS3231   rtc;
@@ -54,6 +52,12 @@ int oclock[2][3] = { {23 , -1, 24}, /* 자 정 */
                      
 int dec_minutes[6][2]  = { { -1, -1 }, { -1, 18 }, { 22, 18 }, { 21, 18 }, { 20, 18 }, { 19, 18 } }; /* -1-1, -1십, 이십, 삼십, 사십, 오십 */
 int uni_minutes[10][2] = { { -1, -1 }, { 34, 30 }, { 26, 30 }, { 27, 30 }, { 28, 30 }, { 35, 30 }, { 29, 30 }, { 33, 30 }, { 32, 30 }, { 31, 30 } }; /* -1-1, 일분, 이분, 삼분, 사분, 오분, 육분, 칠분, 팔분, 구분 */
+
+// 음력 계산이 어려우니 하드코딩으로..
+int fa_birthday[11][3] = { { 2021, 9, 22 },  { 2022, 9, 11 },  { 2023, 9, 30},  { 2024, 9, 18 },   { 2025, 10, 7 },  { 2026, 9, 26},   { 2027, 9, 16 },  { 2028, 10, 4 },  { 2029, 9, 23 },  { 2030, 9, 13 },  { 2031, 10,2 } };
+int mo_birthday[11][3] = { { 2021, 1, 27 },  { 2022, 1, 17 },  { 2023, 1, 6 },  { 2024, 1, 25 },   { 2025, 1, 14 },  { 2026, 2, 2 },   { 2027, 1, 22 },  { 2028, 1, 11 },  { 2029, 1, 29 },  { 2030, 1, 18 },  { 2031, 1, 8 } };
+// 양력
+int other_birth[3][2]  = { { 2, 13 }, { 3, 30 }, { 12, 17 } };
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel( LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800 );
 
@@ -165,6 +169,8 @@ void loop()
     
     old_now = now;
   }
+
+  delay(10);
 }
 
 
@@ -196,8 +202,9 @@ void HappyBirthDay()
 
 void ClockLED( DateTime _now )
 {
-  int now_hour, old_hour;
+  int now_hour  , old_hour;
   int now_minute, old_minute;
+  int now_year  , now_month, now_day; // birthday
 
   /* hour change */
   now_hour =    _now.hour();
@@ -298,10 +305,42 @@ void ClockLED( DateTime _now )
   Serial.println(uni_minutes[now_minute % 10][1]);
   #endif
 
-  // 생일 날 매 30분마다 생일축하
-  if( (_now.month() == BIRTH_MON) && (_now.day() == BIRTH_DAY) && (now_minute % PERIOD == 0))
-  {
-    HappyBirthDay();
+  now_year  = _now.year();
+  now_month = _now.month();
+  now_day   = _now.day();
+
+  // 가족들의 생일 날, PERIOD 분마다 생일축하
+  for ( int i = 0 ; i < 11 ; i++ ) {
+    #ifdef DEBUG
+    Serial.print("fa_birthday[");
+    Serial.print(i);
+    Serial.print("][0] = ");
+    Serial.println(fa_birthday[i][0]);
+    Serial.print("fa_birthday[");
+    Serial.print(i);
+    Serial.print("][1] = ");
+    Serial.println(fa_birthday[i][1]);
+    Serial.print("fa_birthday[");
+    Serial.print(i);
+    Serial.print("][2] = ");
+    Serial.println(fa_birthday[i][2]);
+    Serial.print("other_birth[");
+    Serial.print(i%3);
+    Serial.print("][0] = ");
+    Serial.println(other_birth[i%3][0]);
+    Serial.print("other_birth[");
+    Serial.print(i%3);
+    Serial.print("][1] = ");
+    Serial.println(other_birth[i%3][1]);
+    #endif
+    if( (now_year == fa_birthday[i][0] || now_year == mo_birthday[i][0]) ) {
+      if( now_month == fa_birthday[i][1] || now_month == mo_birthday[i][1] || now_month == other_birth[i%3][0] ) {
+        if ( now_day == fa_birthday[i][2] || now_day == mo_birthday[i][2] || now_day == other_birth[i%3][1] ) {
+          if ( now_minute % PERIOD == 0 )
+            HappyBirthDay();
+        }
+      }
+    }
   }
 }
 
