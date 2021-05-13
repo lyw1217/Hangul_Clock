@@ -12,6 +12,10 @@ https://imgur.com/a/iMXmj
 
 이 세 가지를 짬뽕해서 만들고 있습니다.
 
+일출몰 계산 참고
+https://blog.naver.com/damtaja/221830691724
+https://www.phpschool.com/gnuboard4/bbs/board.php?bo_table=tipntech&wr_id=39302
+
 ## 사용 재료
   1. 멀바우 18T 집성목
   2. 5T 형광연두(반투명) 아크릴
