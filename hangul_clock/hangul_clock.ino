@@ -1,7 +1,7 @@
 #include <RTClib.h>
 #include <Adafruit_NeoPixel.h>
 
-// #define DEBUG
+//#define DEBUG
 // #define INTERRUPT
 
 #define LED_PIN           10
@@ -33,6 +33,9 @@ volatile unsigned long h_current_high;
 volatile unsigned long h_current_low;
 volatile unsigned long m_current_high;
 volatile unsigned long m_current_low;
+
+int sunriseH, sunrisem, sunsetH, sunsetm;
+int brightness ;
 
 int hours[12][3] = { {0  ,11 , 17}, /* 열 두 시 */
                      {1  ,-1 , 17}, /* 한 시 */ 
@@ -128,6 +131,13 @@ void loop()
 {
   now = rtc.now();
 
+  int y = now.year(),
+      m = now.month(),
+      d = now.day(),
+      h = now.hour(),
+      mi= now.minute(),
+      s = now.second();
+  
 #ifdef INTERRUPT
   // 짧게 눌렀을 때
   if( h_short_state == HIGH )
@@ -161,6 +171,8 @@ void loop()
   // 매 초마다 실행
   if( old_now != now )
   {
+    sunrise_sunset(y, m, d, 127+((9/60)+(39/3600)), 37+((29/60)+(11/3600))); // 127도 9분 39초 , 37도 29분 11초
+
     ClockLED( now );
     
     #ifdef DEBUG
@@ -189,6 +201,16 @@ void SerialPrintTime()
   Serial.print( now.minute()  , DEC );
   Serial.print(':');
   Serial.println( now.second(), DEC );
+
+  Serial.print("sunrise : ");
+  Serial.print( sunriseH      , DEC );
+  Serial.print(":");
+  Serial.println( sunrisem    , DEC );
+
+  Serial.print("sunset : ");
+  Serial.print( sunsetH       , DEC );
+  Serial.print(":");
+  Serial.println( sunsetm     , DEC );
 }
 
 
@@ -212,6 +234,16 @@ void ClockLED( DateTime _now )
    /* minute change */
   now_minute = _now.minute();
   old_minute = old_now.minute();
+
+  // 일출 밝기 조절
+  if ( ( sunsetH >= now_hour   && now_hour   >= sunriseH )
+    && ( sunsetm >= now_minute && now_minute >= sunrisem ) ) {
+      brightness = 255;
+  }
+  else {
+    // 일몰 밝기 조절
+    brightness = 100;
+  }
   
   // 이전 시간 OFF
   strip.setPixelColor( ( hours[old_hour % 12][0] ), strip.Color(   0,   0,   0 ) );
@@ -219,23 +251,23 @@ void ClockLED( DateTime _now )
   strip.setPixelColor( ( hours[old_hour % 12][2] ), strip.Color(   0,   0,   0 ) );
   
   // 현재 시간 ON
-  strip.setPixelColor( ( hours[now_hour % 12][0] ), strip.Color( 255, 255, 255 ) );
-  strip.setPixelColor( ( hours[now_hour % 12][1] ), strip.Color( 255, 255, 255 ) );
-  strip.setPixelColor( ( hours[now_hour % 12][2] ), strip.Color( 255, 255, 255 ) );
+  strip.setPixelColor( ( hours[now_hour % 12][0] ), strip.Color( brightness, brightness, brightness ) );
+  strip.setPixelColor( ( hours[now_hour % 12][1] ), strip.Color( brightness, brightness, brightness ) );
+  strip.setPixelColor( ( hours[now_hour % 12][2] ), strip.Color( brightness, brightness, brightness ) );
                    
   // 자정
   if( ( (now_hour == 0) || (now_hour == 24) ) && (now_minute == 0) )
   {
-    strip.setPixelColor( (oclock[0][0] ), strip.Color( 255, 255, 255 ) );
-    strip.setPixelColor( (oclock[0][1] ), strip.Color( 255, 255, 255 ) );
-    strip.setPixelColor( (oclock[0][2] ), strip.Color( 255, 255, 255 ) );
+    strip.setPixelColor( (oclock[0][0] ), strip.Color( brightness, brightness, brightness ) );
+    strip.setPixelColor( (oclock[0][1] ), strip.Color( brightness, brightness, brightness ) );
+    strip.setPixelColor( (oclock[0][2] ), strip.Color( brightness, brightness, brightness ) );
   }
   // 정오
   else if( (now_hour == 12) && (now_minute == 0) )
   {
-    strip.setPixelColor( (oclock[1][0] ), strip.Color( 255, 255, 255 ) );
-    strip.setPixelColor( (oclock[1][1] ), strip.Color( 255, 255, 255 ) );
-    strip.setPixelColor( (oclock[1][2] ), strip.Color( 255, 255, 255 ) );
+    strip.setPixelColor( (oclock[1][0] ), strip.Color( brightness, brightness, brightness ) );
+    strip.setPixelColor( (oclock[1][1] ), strip.Color( brightness, brightness, brightness ) );
+    strip.setPixelColor( (oclock[1][2] ), strip.Color( brightness, brightness, brightness ) );
   }
   else
   {
@@ -270,14 +302,14 @@ void ClockLED( DateTime _now )
   strip.setPixelColor( ( uni_minutes[old_minute % 10][1] ), strip.Color(   0,   0,   0 ) );
   
   // 현재 분 ON
-  strip.setPixelColor( ( dec_minutes[now_minute / 10][0] ), strip.Color( 255, 255, 255 ) );
-  strip.setPixelColor( ( dec_minutes[now_minute / 10][1] ), strip.Color( 255, 255, 255 ) );
-  strip.setPixelColor( ( uni_minutes[now_minute % 10][0] ), strip.Color( 255, 255, 255 ) );
-  strip.setPixelColor( ( uni_minutes[now_minute % 10][1] ), strip.Color( 255, 255, 255 ) );
+  strip.setPixelColor( ( dec_minutes[now_minute / 10][0] ), strip.Color( brightness, brightness, brightness ) );
+  strip.setPixelColor( ( dec_minutes[now_minute / 10][1] ), strip.Color( brightness, brightness, brightness ) );
+  strip.setPixelColor( ( uni_minutes[now_minute % 10][0] ), strip.Color( brightness, brightness, brightness ) );
+  strip.setPixelColor( ( uni_minutes[now_minute % 10][1] ), strip.Color( brightness, brightness, brightness ) );
 
   if( ( now_minute != 0 ) && ( now_minute % 10 == 0 ) )
   {
-    strip.setPixelColor( 30, strip.Color( 255, 255, 255 ) );
+    strip.setPixelColor( 30, strip.Color( brightness, brightness, brightness ) );
   }
   else if( ( now_minute == 0 ) )
   {
@@ -368,8 +400,8 @@ void rainbowFade(int wait, int rainbowLoops, int start_pixel, int end_pixel) {
       // optionally add saturation and value (brightness) (each 0 to 255).
       // Here we're using just the three-argument variant, though the
       // second value (saturation) is a constant 255.
-      strip.setPixelColor(i, strip.gamma32(strip.ColorHSV(pixelHue, 255,
-        255 * fadeVal / fadeMax)));
+      strip.setPixelColor(i, strip.gamma32(strip.ColorHSV(pixelHue, brightness,
+        brightness * fadeVal / fadeMax)));
     }
 
     strip.show();
@@ -448,4 +480,97 @@ void ResetSecond()
     rtc.adjust( now - TimeSpan(0,0,0,1) );
     now = rtc.now();
   }  
+}
+
+
+// 일출 일몰 계산
+void sunrise_sunset(int y, int m, int d, double longitude, double lati) {
+
+  double latitude  = deg2rad(lati);
+  double zenith    = deg2rad(90.8333);  // 일출일몰 계산, 시민박명:96.0, 항해박명:102.0, 천문박명:108.0
+  double timezone  = 9.0;               // KST +9H
+  
+  // 1. first calculate the day of the year
+  int N = floor(275 * m / 9) - (floor((m + 9) / 12) * (1 + floor((y - 4 * floor(y / 4) + 2) / 3))) + d - 30;
+
+  // 2. convert the longitude to hour value and calculate an approximate time
+  double lhour = longitude / 15;
+  
+  double tr = N + ((6 - lhour) / 24.0); // sunrise
+  double ts = N + ((18 - lhour) / 24.0); // sunrise
+
+  // 3. calculate the Sun's mean anomaly
+  double Mr = (0.9856 * tr) - 3.289;
+  double Ms = (0.9856 * ts) - 3.289;
+  
+  // 4. calculate the Sun's true longitude
+  // to be adjusted into the range [0,360) by adding/subtracting 360
+  double Lr = Mr + (1.916*sin(deg2rad(Mr))) + (0.020*sin(deg2rad(2*Mr))) + 282.634;
+  double Ls = Ms + (1.916*sin(deg2rad(Ms))) + (0.020*sin(deg2rad(2*Ms))) + 282.634;
+  Lr = (Lr>=0) ? fmod(Lr, 360) : fmod(Lr, 360) + 360.0;
+  Ls = (Ls>=0) ? fmod(Ls, 360) : fmod(Ls, 360) + 360.0;
+  double lr = deg2rad(Lr);
+  double ls = deg2rad(Ls);
+
+  // 5a. calculate the Sun's right ascension
+  // to be adjusted into the range [0,360) by adding/subtracting 360
+  double RAr = rad2deg(atan(0.91764 * tan(lr)));
+  double RAs = rad2deg(atan(0.91764 * tan(ls)));
+  RAr = (RAr >= 0) ? fmod(RAr, 360) : fmod(RAr, 360) + 360.0;
+  RAs = (RAs >= 0) ? fmod(RAs, 360) : fmod(RAs, 360) + 360.0;
+
+  // 5b. right ascension value needs to be in the same quadrant as L
+  RAr += (floor(Lr / 90.0) * 90.0) - (floor(RAr / 90.0) * 90.0);
+  RAs += (floor(Ls / 90.0) * 90.0) - (floor(RAs / 90.0) * 90.0);
+
+  // 5c. right ascension value needs to be converted into hours
+  RAr /= 15;
+  RAs /= 15;
+
+  // 6. calculate the Sun's declination
+  double sindecr = 0.39782 * sin(lr);
+  double sindecs = 0.39782 * sin(ls);
+  double cosdecr = cos(asin(sindecr));
+  double cosdecs = cos(asin(sindecs));
+
+  // 7a. calculate the Sun's local hour angle
+  // (cosH> 1) the sun never rises on this location (on the specified date)
+  // (cosH<-1) the sun never sets on this location (on the specified date)
+  double cosHr = (cos(zenith) - (sindecr * sin(latitude))) / (cosdecr * cos(latitude));
+  double cosHs = (cos(zenith) - (sindecs * sin(latitude))) / (cosdecs * cos(latitude));
+
+  // 7b. finish calculating H and convert into hours
+  double Hr = 360.0 - rad2deg(acos(cosHr));
+  double Hs = rad2deg(acos(cosHs));
+  Hr /= 15;
+  Hs /= 15;
+
+  // 8. calculate local mean time of rising/setting
+  double Tr = Hr + RAr - (0.06571 * tr) - 6.622;
+  double Ts = Hs + RAs - (0.06571 * ts) - 6.622;
+
+  // 9. adjust back to UTC
+  // to be adjusted into the range [0,24) by adding/subtracting 24
+  double UTr = Tr - lhour;
+  double UTs = Ts - lhour;
+  UTr = (UTr >= 0) ? fmod(UTr, 24.0) : fmod(UTr, 24.0) + 24.0;
+  UTs = (UTs >= 0) ? fmod(UTs, 24.0) : fmod(UTs, 24.0) + 24.0;
+
+  // 10. convert UT value to local time zone of latitude/longitude
+  double localTr = fmod(UTr + timezone, 24.0);
+  double localTs = fmod(UTs + timezone, 24.0);
+
+  // last convert localT to human time
+  sunriseH = floor(localTr);
+  sunrisem = (int)((localTr - sunriseH) * 60);
+  sunsetH = floor(localTs);
+  sunsetm = (int)((localTs - sunsetH) * 60);
+}
+
+double deg2rad(double degree) {
+  return degree * PI / 180;
+}
+
+double rad2deg(double radian) {
+  return radian * 180 / PI;
 }
