@@ -237,7 +237,7 @@ void ClockLED( DateTime _now )
 
   // 일출 밝기 조절
   if ( ( sunsetH >= now_hour   && now_hour   >= sunriseH )
-    && ( sunsetm >= now_minute && now_minute >= sunrisem ) ) {
+    && ( sunsetm <  now_minute && now_minute <  sunrisem ) ) {
       brightness = 255;
   }
   else {
