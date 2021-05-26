@@ -6,7 +6,6 @@
 
 #define LED_PIN           10
 #define LED_COUNT         36
-#define BRIGHTNESS        50
 
 #define BUTTON_HOUR       2
 #define BUTTON_MIN        3
@@ -35,7 +34,7 @@ volatile unsigned long m_current_high;
 volatile unsigned long m_current_low;
 
 int sunriseH, sunrisem, sunsetH, sunsetm;
-int brightness ;
+int brightness = 50 ;
 
 int hours[12][3] = { {0  ,11 , 17}, /* 열 두 시 */
                      {1  ,-1 , 17}, /* 한 시 */ 
@@ -116,7 +115,7 @@ void setup()
   old_now = rtc.now();
   now     = rtc.now();
 
-  strip.setBrightness(BRIGHTNESS);
+  strip.setBrightness(brightness);
   strip.begin();
   strip.clear();
 
@@ -236,14 +235,15 @@ void ClockLED( DateTime _now )
   old_minute = old_now.minute();
 
   // 일출 밝기 조절
-  if ( ( sunsetH >= now_hour   && now_hour   >= sunriseH )
-    && ( sunsetm <  now_minute && now_minute <  sunrisem ) ) {
-      brightness = 255;
+  if ( ( sunsetH  >= now_hour && now_minute >= sunsetm  )
+    && ( sunriseH <  now_hour && now_minute <  sunrisem ) ) {
+      brightness = 70;
   }
   else {
     // 일몰 밝기 조절
-    brightness = 100;
+    brightness = 30;
   }
+  strip.setBrightness(brightness);
   
   // 이전 시간 OFF
   strip.setPixelColor( ( hours[old_hour % 12][0] ), strip.Color(   0,   0,   0 ) );
@@ -251,23 +251,23 @@ void ClockLED( DateTime _now )
   strip.setPixelColor( ( hours[old_hour % 12][2] ), strip.Color(   0,   0,   0 ) );
   
   // 현재 시간 ON
-  strip.setPixelColor( ( hours[now_hour % 12][0] ), strip.Color( brightness, brightness, brightness ) );
-  strip.setPixelColor( ( hours[now_hour % 12][1] ), strip.Color( brightness, brightness, brightness ) );
-  strip.setPixelColor( ( hours[now_hour % 12][2] ), strip.Color( brightness, brightness, brightness ) );
+  strip.setPixelColor( ( hours[now_hour % 12][0] ), strip.Color( 255, 255, 255 ) );
+  strip.setPixelColor( ( hours[now_hour % 12][1] ), strip.Color( 255, 255, 255 ) );
+  strip.setPixelColor( ( hours[now_hour % 12][2] ), strip.Color( 255, 255, 255 ) );
                    
   // 자정
   if( ( (now_hour == 0) || (now_hour == 24) ) && (now_minute == 0) )
   {
-    strip.setPixelColor( (oclock[0][0] ), strip.Color( brightness, brightness, brightness ) );
-    strip.setPixelColor( (oclock[0][1] ), strip.Color( brightness, brightness, brightness ) );
-    strip.setPixelColor( (oclock[0][2] ), strip.Color( brightness, brightness, brightness ) );
+    strip.setPixelColor( (oclock[0][0] ), strip.Color( 255, 255, 255 ) );
+    strip.setPixelColor( (oclock[0][1] ), strip.Color( 255, 255, 255 ) );
+    strip.setPixelColor( (oclock[0][2] ), strip.Color( 255, 255, 255 ) );
   }
   // 정오
   else if( (now_hour == 12) && (now_minute == 0) )
   {
-    strip.setPixelColor( (oclock[1][0] ), strip.Color( brightness, brightness, brightness ) );
-    strip.setPixelColor( (oclock[1][1] ), strip.Color( brightness, brightness, brightness ) );
-    strip.setPixelColor( (oclock[1][2] ), strip.Color( brightness, brightness, brightness ) );
+    strip.setPixelColor( (oclock[1][0] ), strip.Color( 255, 255, 255 ) );
+    strip.setPixelColor( (oclock[1][1] ), strip.Color( 255, 255, 255 ) );
+    strip.setPixelColor( (oclock[1][2] ), strip.Color( 255, 255, 255 ) );
   }
   else
   {
@@ -302,14 +302,14 @@ void ClockLED( DateTime _now )
   strip.setPixelColor( ( uni_minutes[old_minute % 10][1] ), strip.Color(   0,   0,   0 ) );
   
   // 현재 분 ON
-  strip.setPixelColor( ( dec_minutes[now_minute / 10][0] ), strip.Color( brightness, brightness, brightness ) );
-  strip.setPixelColor( ( dec_minutes[now_minute / 10][1] ), strip.Color( brightness, brightness, brightness ) );
-  strip.setPixelColor( ( uni_minutes[now_minute % 10][0] ), strip.Color( brightness, brightness, brightness ) );
-  strip.setPixelColor( ( uni_minutes[now_minute % 10][1] ), strip.Color( brightness, brightness, brightness ) );
+  strip.setPixelColor( ( dec_minutes[now_minute / 10][0] ), strip.Color( 255, 255, 255 ) );
+  strip.setPixelColor( ( dec_minutes[now_minute / 10][1] ), strip.Color( 255, 255, 255 ) );
+  strip.setPixelColor( ( uni_minutes[now_minute % 10][0] ), strip.Color( 255, 255, 255 ) );
+  strip.setPixelColor( ( uni_minutes[now_minute % 10][1] ), strip.Color( 255, 255, 255 ) );
 
   if( ( now_minute != 0 ) && ( now_minute % 10 == 0 ) )
   {
-    strip.setPixelColor( 30, strip.Color( brightness, brightness, brightness ) );
+    strip.setPixelColor( 30, strip.Color( 255, 255, 255 ) );
   }
   else if( ( now_minute == 0 ) )
   {
@@ -377,6 +377,7 @@ void ClockLED( DateTime _now )
 }
 
 
+// 라이브러리 1.6.1 버전 이상 사용하면 안됨
 // https://github.com/adafruit/Adafruit_NeoPixel/blob/master/examples/RGBWstrandtest/RGBWstrandtest.ino
 // fade on = 1 , off = 0
 void rainbowFade(int wait, int rainbowLoops, int start_pixel, int end_pixel) {
@@ -397,11 +398,11 @@ void rainbowFade(int wait, int rainbowLoops, int start_pixel, int end_pixel) {
       uint32_t pixelHue = firstPixelHue + (i * 65536L / 10);
 
       // strip.ColorHSV() can take 1 or 3 arguments: a hue (0 to 65535) or
-      // optionally add saturation and value (brightness) (each 0 to 255).
+      // optionally add saturation and value (255) (each 0 to 255).
       // Here we're using just the three-argument variant, though the
       // second value (saturation) is a constant 255.
-      strip.setPixelColor(i, strip.gamma32(strip.ColorHSV(pixelHue, brightness,
-        brightness * fadeVal / fadeMax)));
+      strip.setPixelColor(i, strip.gamma32(strip.ColorHSV(pixelHue, 255,
+        255 * fadeVal / fadeMax)));
     }
 
     strip.show();
